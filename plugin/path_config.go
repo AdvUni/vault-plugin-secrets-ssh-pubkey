@@ -135,7 +135,7 @@ func (b *backend) writeConfig(ctx context.Context, req *logical.Request, data *f
 	if err != nil || pr == nil {
 		return logical.ErrorResponse("invalid private key"), nil
 	}
-	pu, err := ssh.ParsePublicKey([]byte(c.PublicKey))
+	pu, err := parsePublicSSHKey(c.PublicKey)
 	if err != nil || pu == nil {
 		return logical.ErrorResponse("invalid public key"), nil
 	}
