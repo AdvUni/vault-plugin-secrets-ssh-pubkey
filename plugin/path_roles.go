@@ -7,6 +7,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -15,6 +16,8 @@ import (
 type role struct {
 	RoleName              string
 	UserName              string
+	TTL                   time.Duration
+	MaxTTL                time.Duration
 	KeyOptionSpecs        string         `mapstructure:"key_option_specs" json:"key_option_specs"`
 	AllowedUserKeyLengths map[string]int `mapstructure:"allowed_user_key_lengths" json:"allowed_user_key_lengths"`
 }
@@ -47,6 +50,20 @@ func pathRoles(b *backend) *framework.Path {
 				[Required] Name of the user at the host machine which is managed by this role.
 				`,
 			},
+			"ttl": &framework.FieldSchema{
+				Type: framework.TypeString,
+				Description: `
+				[Optional] The lease duration if no specific lease duration is
+				requested. The lease duration controls the expiration
+				of certificates issued by this backend. Defaults to
+				the value of max_ttl.`,
+			},
+			"max_ttl": &framework.FieldSchema{
+				Type: framework.TypeString,
+				Description: `
+				[Optional] The maximum allowed lease duration
+				`,
+			},
 			"key_option_specs": &framework.FieldSchema{
 				Type: framework.TypeString,
 				Description: `
@@ -55,28 +72,6 @@ func pathRoles(b *backend) *framework.Path {
 				file format and should not contain spaces.
 				`,
 			},
-			//			"ttl": &framework.FieldSchema{
-			//				Type: framework.TypeDurationSecond,
-			//				Description: `
-			//				[Not applicable for Dynamic type] [Not applicable for OTP type] [Optional for CA type]
-			//				The lease duration if no specific lease duration is
-			//				requested. The lease duration controls the expiration
-			//				of certificates issued by this backend. Defaults to
-			//				the value of max_ttl.`,
-			//				DisplayAttrs: &framework.DisplayAttributes{
-			//					Name: "TTL",
-			//				},
-			//			},
-			//			"max_ttl": &framework.FieldSchema{
-			//				Type: framework.TypeDurationSecond,
-			//				Description: `
-			//				[Not applicable for Dynamic type] [Not applicable for OTP type] [Optional for CA type]
-			//				The maximum allowed lease duration
-			//				`,
-			//				DisplayAttrs: &framework.DisplayAttributes{
-			//					Name: "Max TTL",
-			//				},
-			//			},
 			"allowed_user_key_lengths": &framework.FieldSchema{
 				Type: framework.TypeMap,
 				Description: `
@@ -97,6 +92,7 @@ func pathRoles(b *backend) *framework.Path {
 
 func (b *backend) writeRole(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	r := role{}
+	var err error
 
 	if roleName, ok := data.GetOk("role"); ok {
 		r.RoleName = roleName.(string)
@@ -107,6 +103,18 @@ func (b *backend) writeRole(ctx context.Context, req *logical.Request, data *fra
 		r.UserName = username.(string)
 	} else {
 		return logical.ErrorResponse("username attribute is required"), nil
+	}
+	if ttlString, ok := data.GetOk("ttl"); ok {
+		r.TTL, err = time.ParseDuration(ttlString.(string))
+		if err != nil {
+			return logical.ErrorResponse(fmt.Sprintf(invalidTimestringMsg, "ttl")), nil
+		}
+	}
+	if ttlMaxString, ok := data.GetOk("max_ttl"); ok {
+		r.MaxTTL, err = time.ParseDuration(ttlMaxString.(string))
+		if err != nil {
+			return logical.ErrorResponse(fmt.Sprintf(invalidTimestringMsg, "max_ttl")), nil
+		}
 	}
 	if keyOptionSpecs, ok := data.GetOk("key_option_specs"); ok {
 		r.KeyOptionSpecs = keyOptionSpecs.(string)
@@ -146,10 +154,24 @@ func (b *backend) readRole(ctx context.Context, req *logical.Request, data *fram
 		return nil, nil
 	}
 
+	var ttlString, ttlMaxString string
+	if role.TTL != 0 {
+		ttlString = role.TTL.String()
+	} else {
+		ttlString = "not set"
+	}
+	if role.MaxTTL != 0 {
+		ttlMaxString = role.MaxTTL.String()
+	} else {
+		ttlMaxString = "not set"
+	}
+
 	resp := &logical.Response{
 		Data: map[string]interface{}{
 			"role":                     role.RoleName,
 			"username":                 role.UserName,
+			"ttl":                      ttlString,
+			"max_ttl":                  ttlMaxString,
 			"key_options_spec":         role.KeyOptionSpecs,
 			"allowed_user_key_lengths": role.AllowedUserKeyLengths,
 		},

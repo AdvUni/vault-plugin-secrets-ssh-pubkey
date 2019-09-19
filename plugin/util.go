@@ -20,6 +20,10 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+const (
+	invalidTimestringMsg = "invalid timestring for %s. Must have a format like '30s or '1h20m'. Valid time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h"
+)
+
 // Public key and the script to install the key are uploaded to remote machine.
 // Public key is either added or removed from authorized_keys file using the
 // script. Default script is for a Linux machine and hence the path of the

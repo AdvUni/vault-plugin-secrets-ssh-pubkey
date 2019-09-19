@@ -10,6 +10,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"fmt"
+	"time"
 
 	uuid "github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/vault/sdk/framework"
@@ -29,6 +30,20 @@ func pathCreds(b *backend) *framework.Path {
 			"public_key": &framework.FieldSchema{
 				Type:        framework.TypeString,
 				Description: "[Required] The ssh public key to register within the target machine",
+			},
+			"ttl": &framework.FieldSchema{
+				Type: framework.TypeString,
+				Description: `
+				[Optional] The lease duration if no specific lease duration is
+				requested. The lease duration controls the expiration
+				of certificates issued by this backend. Defaults to
+				the value of max_ttl.`,
+			},
+			"max_ttl": &framework.FieldSchema{
+				Type: framework.TypeString,
+				Description: `
+				[Optional] The maximum allowed lease duration
+				`,
 			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
@@ -63,7 +78,7 @@ func (b *backend) registerKeyInTargetMachine(ctx context.Context, req *logical.R
 		return logical.ErrorResponse("secrets engine hasn't been configured yet"), nil
 	}
 
-	// get key from arguments
+	// get key from arguments and validate
 	var pubKeyString string
 	if pubkey, ok := data.GetOk("public_key"); ok {
 		pubKeyString = pubkey.(string)
@@ -73,6 +88,31 @@ func (b *backend) registerKeyInTargetMachine(ctx context.Context, req *logical.R
 	publicKey, err := parsePublicSSHKey(pubKeyString)
 	if err != nil {
 		return logical.ErrorResponse(fmt.Sprintf("failed to parse public_key as SSH key: %s", err)), nil
+	}
+
+	// get ttl and max_ttl from arguments and validate
+	var ttl, ttlMax time.Duration
+	if ttlString, ok := data.GetOk("ttl"); ok {
+		ttl, err = time.ParseDuration(ttlString.(string))
+		if err != nil {
+			return logical.ErrorResponse(fmt.Sprintf(invalidTimestringMsg, "ttl")), nil
+		}
+		if role.TTL != 0 && ttl > role.TTL {
+			return logical.ErrorResponse("ttl is to big. The role config only allows a ttl up to %s", role.TTL.String()), nil
+		}
+	} else {
+		ttl = role.TTL
+	}
+	if ttlMaxString, ok := data.GetOk("max_ttl"); ok {
+		ttlMax, err = time.ParseDuration(ttlMaxString.(string))
+		if err != nil {
+			return logical.ErrorResponse(fmt.Sprintf(invalidTimestringMsg, "max_ttl")), nil
+		}
+		if role.MaxTTL != 0 && ttlMax > role.MaxTTL {
+			return logical.ErrorResponse("max_ttl is to big. The role config only allows a max_ttl up to %s", role.MaxTTL.String()), nil
+		}
+	} else {
+		ttlMax = role.MaxTTL
 	}
 
 	// apply the role's AllowUserKeyLength
@@ -86,7 +126,7 @@ func (b *backend) registerKeyInTargetMachine(ctx context.Context, req *logical.R
 		pubKeyString = fmt.Sprintf("%s %s", role.KeyOptionSpecs, pubKeyString)
 	}
 
-	// Add the public key to authorized_keys file in target machine
+	// add the public key to authorized_keys file in target machine
 	err = b.installPublicKeyInTarget(ctx, config.SSHuser, role.UserName, config.URL, config.Port, config.PrivateKey, pubKeyString, config.InstallScript, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add public key to authorized_keys file in target: %v", err)
@@ -98,6 +138,14 @@ func (b *backend) registerKeyInTargetMachine(ctx context.Context, req *logical.R
 	}
 
 	resp := b.Secret(secretSSHPubkeyType).Response(responseData, responseData)
+
+	// set lease duration and max duration if given
+	if ttl != 0 {
+		resp.Secret.TTL = ttl
+	}
+	if ttlMax != 0 {
+		resp.Secret.MaxTTL = ttlMax
+	}
 
 	return resp, nil
 }
