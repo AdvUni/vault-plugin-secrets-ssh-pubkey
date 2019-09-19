@@ -54,7 +54,7 @@ func (b *backend) registerKeyInTargetMachine(ctx context.Context, req *logical.R
 		return logical.ErrorResponse(fmt.Sprintf("unknown role: %s", roleName)), nil
 	}
 
-	//fetch secrets engine config
+	// fetch secrets engine config
 	config, err := getConfigParams(ctx, req.Storage)
 	if err != nil {
 		return nil, err
@@ -65,13 +65,11 @@ func (b *backend) registerKeyInTargetMachine(ctx context.Context, req *logical.R
 
 	// get key from arguments
 	var pubKeyString string
-
 	if pubkey, ok := data.GetOk("public_key"); ok {
 		pubKeyString = pubkey.(string)
 	} else {
 		return logical.ErrorResponse("public_key parameter is required"), nil
 	}
-
 	publicKey, err := parsePublicSSHKey(pubKeyString)
 	if err != nil {
 		return logical.ErrorResponse(fmt.Sprintf("failed to parse public_key as SSH key: %s", err)), nil

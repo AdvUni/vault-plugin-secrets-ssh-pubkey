@@ -127,7 +127,7 @@ func (b *backend) writeConfig(ctx context.Context, req *logical.Request, data *f
 	} else {
 		// Setting the default script here. The script will install the
 		// generated public key in the authorized_keys file of linux host.
-		installScript = DefaultPublicKeyInstallScript
+		c.InstallScript = DefaultPublicKeyInstallScript
 	}
 
 	// validate keys
