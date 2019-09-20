@@ -28,7 +28,7 @@ func pathConfig(b *backend) *framework.Path {
 		Fields: map[string]*framework.FieldSchema{
 			"url": &framework.FieldSchema{
 				Type:        framework.TypeString,
-				Description: "[Required] URL or IP address of host machine.",
+				Description: "[Required] URL or IP address of target machine.",
 			},
 			"port": &framework.FieldSchema{
 				Type:        framework.TypeInt,
@@ -40,18 +40,15 @@ func pathConfig(b *backend) *framework.Path {
 			},
 			"private_key": &framework.FieldSchema{
 				Type:        framework.TypeString,
-				Description: "[Required] SSH private key with super user privileges in host.",
+				Description: "[Required] SSH private key which has permissions to log into 'ssh_user'.",
 			},
 			"public_key": &framework.FieldSchema{
 				Type:        framework.TypeString,
-				Description: "[Required] SSH public key belonging to the private key.",
+				Description: "[Required] SSH public key belonging to the private key. It is only for reference purposes. When making a GET request on the config, it shows up instead of the private key",
 			},
 			"install_script": &framework.FieldSchema{
-				Type: framework.TypeString,
-				Description: `
-				[Optional] Script used to install and uninstall public keys in the target machine.
-				The inbuilt default install script will be for Linux hosts. For sample
-				script, refer the project documentation website.`,
+				Type:        framework.TypeString,
+				Description: "[Optional] Script used to install and uninstall public keys in the target machine. The inbuilt default install script will be for Linux hosts. It can be found within the plugin code inside the file plugin/linux_install_script.go.",
 			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
@@ -61,6 +58,17 @@ func pathConfig(b *backend) *framework.Path {
 		},
 		HelpSynopsis:    pathConfigSyn,
 		HelpDescription: pathConfigDesc,
+	}
+}
+
+func pathConfigInstallScript(b *backend) *framework.Path {
+	return &framework.Path{
+		Pattern: "config/install_script",
+		Callbacks: map[logical.Operation]framework.OperationFunc{
+			logical.ReadOperation: b.readInstallScript,
+		},
+		HelpSynopsis:    "Look up the configured install_script.",
+		HelpDescription: "As the install script is quite long, it is not included in the response to a read request on path config. Instead, the script can be reviewed using this endpoint. It is only for reading purposes and does not support write requests. To set the script, use endpoint config.",
 	}
 }
 
@@ -74,12 +82,28 @@ func (b *backend) readConfig(ctx context.Context, req *logical.Request, _ *frame
 	}
 
 	resp := &logical.Response{
-		// TODO: include install script
 		Data: map[string]interface{}{
 			"url":        config.URL,
 			"port":       config.Port,
 			"ssh_user":   config.SSHuser,
 			"public_key": config.PublicKey,
+		},
+	}
+	return resp, nil
+}
+
+func (b *backend) readInstallScript(ctx context.Context, req *logical.Request, _ *framework.FieldData) (*logical.Response, error) {
+	config, err := getConfigParams(ctx, req.Storage)
+	if err != nil {
+		return nil, err
+	}
+	if config == nil {
+		return nil, nil
+	}
+
+	resp := &logical.Response{
+		Data: map[string]interface{}{
+			"install_script": config.InstallScript,
 		},
 	}
 	return resp, nil

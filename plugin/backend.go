@@ -43,6 +43,7 @@ func Backend(conf *logical.BackendConfig) *backend {
 
 		Paths: []*framework.Path{
 			pathConfig(&b),
+			pathConfigInstallScript(&b),
 			pathRoles(&b),
 			pathListRoles(&b),
 			pathCreds(&b),
