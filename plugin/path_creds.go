@@ -25,25 +25,19 @@ func pathCreds(b *backend) *framework.Path {
 		Fields: map[string]*framework.FieldSchema{
 			"role": &framework.FieldSchema{
 				Type:        framework.TypeString,
-				Description: "[Required] Name of the role",
+				Description: "[Required] Role name for which the public key should be uploaded. This is part of the request URL.",
 			},
 			"public_key": &framework.FieldSchema{
 				Type:        framework.TypeString,
-				Description: "[Required] The ssh public key to register within the target machine",
+				Description: "[Required] The ssh public key to register within the target machine.",
 			},
 			"ttl": &framework.FieldSchema{
-				Type: framework.TypeString,
-				Description: `
-				[Optional] The lease duration if no specific lease duration is
-				requested. The lease duration controls the expiration
-				of certificates issued by this backend. Defaults to
-				the value of max_ttl.`,
+				Type:        framework.TypeString,
+				Description: "[Optional] The lease duration. After its expiration, vault will remove the public key from the target machine automatically. Value can not be greater than the ttl in the role definition. Defaults to the role's ttl. The duration string must have a format like '30s or '1h20m'. Valid time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'.",
 			},
 			"max_ttl": &framework.FieldSchema{
-				Type: framework.TypeString,
-				Description: `
-				[Optional] The maximum allowed lease duration
-				`,
+				Type:        framework.TypeString,
+				Description: "[Optional] The maximum allowed lease duration. This determines, how often the lease can be renewed. Value can not be greater than the max_ttl in the role definition. Defaults to the role's max_ttl. The duration string must have a format like '30s or '1h20m'. Valid time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'.",
 			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
@@ -113,6 +107,9 @@ func (b *backend) registerKeyInTargetMachine(ctx context.Context, req *logical.R
 		}
 	} else {
 		ttlMax = role.MaxTTL
+	}
+	if ttlMax != 0 && ttl > ttlMax {
+		return logical.ErrorResponse("the given ttl is greater than the max_ttl"), nil
 	}
 
 	// apply the role's AllowUserKeyLength

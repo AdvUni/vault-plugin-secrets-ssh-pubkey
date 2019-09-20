@@ -40,44 +40,28 @@ func pathRoles(b *backend) *framework.Path {
 		Pattern: "roles/" + framework.GenericNameRegex("role"),
 		Fields: map[string]*framework.FieldSchema{
 			"role": &framework.FieldSchema{
-				Type: framework.TypeString,
-				Description: `
-				[Required] Name of the role being created. This is part of the request URL.`,
+				Type:        framework.TypeString,
+				Description: "[Required] Specifies the name of the role to create. This is part of the request URL.",
 			},
 			"username": &framework.FieldSchema{
-				Type: framework.TypeString,
-				Description: `
-				[Required] Name of the user at the host machine which is managed by this role.
-				`,
+				Type:        framework.TypeString,
+				Description: "[Required] Name of the target machine's OS user which is managed by this role.",
 			},
 			"ttl": &framework.FieldSchema{
-				Type: framework.TypeString,
-				Description: `
-				[Optional] The lease duration if no specific lease duration is
-				requested. The lease duration controls the expiration
-				of certificates issued by this backend. Defaults to
-				the value of max_ttl.`,
+				Type:        framework.TypeString,
+				Description: "[Optional] The role's default lease duration. It controls a public key's duration of access after a creds request. At request time, the ttl can be set individually, but not be greater than the role's default. The ttl overwrites the system/mount default. If max_ttl is given, ttl defaults to the value of max_ttl. The duration string must have a format like '30s or '1h20m'. Valid time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'.",
 			},
 			"max_ttl": &framework.FieldSchema{
-				Type: framework.TypeString,
-				Description: `
-				[Optional] The maximum allowed lease duration
-				`,
+				Type:        framework.TypeString,
+				Description: "[Optional] The role's default maximum allowed lease duration. A lease can be renewed until this value gets reached. At request time, the max_ttl can be set individually, but not be greater than the role's default. The max_ttl overwrites the system/mount default. The duration string must have a format like '30s or '1h20m'. Valid time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'.",
 			},
 			"key_option_specs": &framework.FieldSchema{
-				Type: framework.TypeString,
-				Description: `
-				[Optional] Comma separated option specifications which will be prefixed to RSA key in
-				authorized_keys file. Options should be valid and comply with authorized_keys
-				file format and should not contain spaces.
-				`,
+				Type:        framework.TypeString,
+				Description: "[Optional] Comma separated option specifications which will be prefixed to public RSA keys before uploading to authorized_keys file. Options should be valid and comply with authorized_keys file format and should not contain spaces.",
 			},
 			"allowed_user_key_lengths": &framework.FieldSchema{
-				Type: framework.TypeMap,
-				Description: `
-				[Optional] If set, allows the enforcement of key types and minimum
-				key sizes to be signed.
-                `,
+				Type:        framework.TypeMap,
+				Description: "[Optional] Specifies a map of ssh key types and their expected sizes which are allowed to be signed by the CA type.",
 			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
@@ -124,6 +108,17 @@ func (b *backend) writeRole(ctx context.Context, req *logical.Request, data *fra
 		r.AllowedUserKeyLengths, err = convertMapToIntValue(allowedUserKeyLengths.(map[string]interface{}))
 		if err != nil {
 			return logical.ErrorResponse("malformed allowed_user_key_lengths parameter"), nil
+		}
+	}
+
+	// validate TTLs
+	if r.MaxTTL != 0 {
+		if r.TTL > r.MaxTTL {
+			return logical.ErrorResponse("the given ttl is greater than the max_ttl"), nil
+		}
+		// ttl defaults to max_ttl
+		if r.TTL == 0 {
+			r.TTL = r.MaxTTL
 		}
 	}
 
