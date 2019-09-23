@@ -5,7 +5,7 @@ This Secrets Engine is for granting access to SSH machines.
 
 It is a variation of Vaults [builtin SSH Secrets Engine](https://www.vaultproject.io/docs/secrets/ssh/index.html), providing something like a fourth mode. It offers SSH access through normal public key authentication.
 
-All possible request towards the Secrets Engine are fully documented in the [API reference](doc/api_reference.md).
+All functions of the Secrets Engine are fully documented in the [API reference](doc/api_reference.md).
 
 ## Why another SSH Secrets Engine?
 Vaults [builtin SSH Secrets Engine](https://www.vaultproject.io/docs/secrets/ssh/index.html) already provides three different modes for accessing SSH machines:

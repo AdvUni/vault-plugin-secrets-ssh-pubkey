@@ -18,15 +18,16 @@ DELETE | ssh-pubkey/config
 * `url` (string, required) – URL or IP address of SSH target machine.
 * `port` (integer, optional) – Port number which is used by Secrets Engine to communicate with target machine. Default is 22.
 * `ssh_user` (string, optional) – Privileged user who has access to authorized_key files. Default is 'root'.
-* `private_key` (string, required) – SSH private key which has permissions to log into 'ssh_user'.
-* `public_key` (string, required) – SSH public key belonging to the private key. It is only for reference purposes. When making a GET request on the config, it shows up instead of the private key
+* `private_key` (string, required) – SSH private key which has permissions to log into 'ssh_user'. Note, that private keys usually contain line breaks which are not allowed in json strings. So, you first must encode them with `\n`.
+* `public_key` (string, required) – SSH public key belonging to the private key. It is only for reference purposes. When making a GET request on the config, it shows up instead of the private key.
 * `install_script` (string, optional) – Script used to install and uninstall public keys in the target machine.	The inbuilt default install script will be for Linux hosts. It can be found within the plugin code inside the file [plugin/linux_install_script.go](../plugin/linux_install_script.go). (Or see example response of endpoint [config/install_script](./api_reference.md#read-install-script))
 
 ### Sample POST Payload
 ```json
 {
     "url":"https://127.0.0.1",
-    // TODO: payload for private key
+    "private_key": "-----BEGIN RSA PRIVATE KEY-----\n ...",
+    "public_key": "ssh-rsa AAAAB3NzaC1yc2EAA..."
 }
 ```
 
@@ -107,7 +108,8 @@ curl \
     # 'cleanup' will be called if the script ends or if any command fails.\n
     trap cleanup EXIT\n
     \n
-    # Return if the option is anything other than 'install' or 'uninstall'.\nif [ \"$INSTALL_OPTION\" != \"install\" ] \u0026\u0026 [ \"$INSTALL_OPTION\" != \"uninstall\" ]; then\n\t
+    # Return if the option is anything other than 'install' or 'uninstall'.\n
+    if [ \"$INSTALL_OPTION\" != \"install\" ] \u0026\u0026 [ \"$INSTALL_OPTION\" != \"uninstall\" ]; then\n\t
         exit 1\n
     fi\n
     \n
