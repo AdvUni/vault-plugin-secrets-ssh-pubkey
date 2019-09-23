@@ -23,8 +23,33 @@ But so the user needs to provide two files for authentication, both the certific
 
 So why there is not another mode, which combines the dynamic keys and the signed certificates? This is what the SSH-Pubkey plugin tries to accomplish. It uploads SSH public keys to the `authorized_keys` file of a target machine allowing the owner of the private key to log in, but it requests the public key from the user instead of generating it itself. Further, the Secrets Engine returns a lease with the possibility to renew or revoke the access immediately. As long as the lease is valid, users can do real public key authentication towards the target machine only using their personal key pair without copying, downloading or forwarding any information from Vault at all. They can even use the same keys over different leases.
 
-## Code and functionality
-This Plugin was written by copying and modifying the [Code from the builtin SSH Secrets Engine](https://github.com/hashicorp/vault/tree/master/builtin/logical/ssh). Since the plugin does not include several modes at once, it is much simpler than the original Secrets Engine.
-
 ## Usage
-You can find the API reference under [doc/api_reference.md](doc/api_reference.md)
+Download the code with
+```sh
+go get -u github.com/AdvUni/vault-plugin-secrets-ssh-pubkey
+```
+Move into `~/github.com/AdvUni/vault-plugin-secrets-ssh-pubkey` and compile the plugin with
+```sh
+go build
+```
+
+Next, the plugin needs to be [registered](https://www.vaultproject.io/docs/internals/plugins.html#plugin-registration) in vault. Note that you therefore need to specify a [plugin directory](https://www.vaultproject.io/docs/configuration/index.html#plugin_directory) and the [api-address parameter](https://www.vaultproject.io/docs/configuration/index.html#api_addr) in your vault configuration first. 
+
+Enable the plugin, configure it and define a role. Then, the `creds` endpoint can be used to grant an ssh key access to the target machine:
+```sh
+vault write ssh-pubkey/creds/my_role public_key="ssh-rsa AAAAB3NzaC1yc2EAA..."
+```
+Afterwards, the corresponding private key can be used for logging into the target machine via normal public key authentication:
+```sh
+ssh -i id_rsa user@example-url
+```
+if the ssh key pair lays in the `.ssh` folder in your home directory, you can even omit to specify it with the `-i` parameter.
+
+For full reference see the API documentation under [doc/api_reference.md](doc/api_reference.md)
+
+## Code and functionality
+This Plugin was written by copying and modifying the [Code from the builtin SSH Secrets Engine](https://github.com/hashicorp/vault/tree/master/builtin/logical/ssh). The SSH-Pubkey plugin not includes the functionality of several modes at once and is therefore much simpler than the original Secrets Engine.
+
+In particular, the tasks of the different request endpoints 'config', 'role' and 'creds' are determined a bit more clearly. Each instance of the SSH-Pubkey Secrets Engine addresses one specific target machine. This target machine is determined by url or IP address at the endpoint `creds`. A role in contrast is for addressing one specific OS user at the target machine. This user's `authorized_keys` file gets changed when calling endpoint `creds` for the role. You always need a role for calling the `creds` endpoint.
+
+With this concepts, there is no possibility for users to ask for custom IPs when requesting `creds` as in the builtin SSH Secrets Engine. Neither is there any need for specifying parameters like allowed CIDR blocks or Zero-Addresses.
