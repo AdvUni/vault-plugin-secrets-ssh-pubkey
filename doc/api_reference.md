@@ -25,7 +25,7 @@ DELETE | ssh-pubkey/config
 ### Sample POST Payload
 ```json
 {
-    "url":"https://127.0.0.1",
+    "url":"127.0.0.1",
     "private_key": "-----BEGIN RSA PRIVATE KEY-----\n ...",
     "public_key": "ssh-rsa AAAAB3NzaC1yc2EAA..."
 }

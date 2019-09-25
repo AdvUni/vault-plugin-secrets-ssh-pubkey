@@ -32,7 +32,7 @@ go get -u github.com/AdvUni/vault-plugin-secrets-ssh-pubkey
 ```
 Move into `~/github.com/AdvUni/vault-plugin-secrets-ssh-pubkey` and compile the plugin with
 ```sh
-go build
+go build -o ssh-pubkey-plugin
 ```
 
 Next, the plugin needs to be [registered](https://www.vaultproject.io/docs/internals/plugins.html#plugin-registration) in vault. Note that you therefore need to specify a [plugin directory](https://www.vaultproject.io/docs/configuration/index.html#plugin_directory) and the [api-address parameter](https://www.vaultproject.io/docs/configuration/index.html#api_addr) in your vault configuration first. 
